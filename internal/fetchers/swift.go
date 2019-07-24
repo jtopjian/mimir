@@ -14,25 +14,27 @@ type SwiftFetcher struct {
 }
 
 func NewSwiftFetcher(config FetcherConfig) (Fetcher, error) {
-	split := strings.Split(config.From, "/")
-	if len(split) < 2 {
+	containerEnd := strings.LastIndex(config.From, "/")
+	if containerEnd == -1 {
 		return nil, errors.New("no container specified")
 	}
 
-	return SwiftFetcher{containerName: split[0], objectName: split[1]}, nil
+	container := config.From[0 : containerEnd-1]
+	object := config.From[containerEnd+1 : len(config.From)]
+
+	return SwiftFetcher{containerName: container, objectName: object}, nil
 }
 
 func (f SwiftFetcher) Fetch() ([]byte, error) {
-	opts := &clientconfig.ClientOpts{}
-	client, err := clientconfig.NewServiceClient("object-store", opts)
+	client, err := clientconfig.NewServiceClient("object-store", nil)
 	if err != nil {
-		return []byte{}, errors.Wrap(err, "swift client creation failed")
+		return nil, errors.Wrap(err, "swift client creation failed")
 	}
 
 	object := objects.Download(client, f.containerName, f.objectName, nil)
 	content, err := object.ExtractContent()
 	if err != nil {
-		return []byte{}, errors.Wrap(err, "failed to extract object content")
+		return nil, errors.Wrap(err, "failed to extract object content")
 	}
 
 	return content, nil
